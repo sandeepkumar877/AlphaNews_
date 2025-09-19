@@ -14,8 +14,11 @@ export class News extends Component {
     country: PropTypes.string,
     pageSize: PropTypes.number,
     category: PropTypes.string,
+    apiKey: PropTypes.string,
+    setProgress: PropTypes.func,
   };
 
+  // sample fallback articles
   articles = [
     {
       source: { id: "espn-cric-info", name: "ESPN Cric Info" },
@@ -29,7 +32,7 @@ export class News extends Component {
         "https://a4.espncdn.com/combiner/i?img=%2Fi%2Fcricket%2Fcricinfo%2F1099495_800x450.jpg",
       publishedAt: "2020-04-27T11:41:47Z",
       content:
-        "Umar Akmal's troubled cricket career has hit its biggest roadblock yet, with the PCB handing him a ban from all representative cricket for three years after he pleaded guilty of failing to report det… [+1506 chars]",
+        "Umar Akmal's troubled cricket career has hit its biggest roadblock yet...",
     },
     {
       source: { id: "espn-cric-info", name: "ESPN Cric Info" },
@@ -42,8 +45,7 @@ export class News extends Component {
       urlToImage:
         "https://a4.espncdn.com/combiner/i?img=%2Fi%2Fcricket%2Fcricinfo%2F1219926_1296x729.jpg",
       publishedAt: "2020-03-30T15:26:05Z",
-      content:
-        "Last week, we at ESPNcricinfo did something we have been thinking of doing for eight years now: pretend-live ball-by-ball commentary for a classic cricket match. We knew the result, yes, but we tried… [+6823 chars]",
+      content: "Last week, we at ESPNcricinfo did something fun...",
     },
   ];
 
@@ -55,67 +57,86 @@ export class News extends Component {
       totalResults: 0,
       page: 1,
     };
-    document.title = `Alpha News-${this.capital(this.props.category)}`;
-    document.body.style.backgroundColor = '#E1EBEE';
+    document.title = `Alpha News - ${this.capital(this.props.category)}`;
+    document.body.style.backgroundColor = "#E1EBEE";
   }
 
   async componentDidMount() {
-    this.fetchNews();
+    await this.fetchNews();
   }
 
   async fetchNews() {
-    this.props.setProgress(10);
+    if (this.props.setProgress) this.props.setProgress(10);
     this.setState({ loading: true });
-    const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=${this.props.apiKey}2&page=${this.state.page}&pageSize=${this.props.pageSize}`;
-    let data = await fetch(url);
-    this.props.setProgress(30);
-    let parsedData = await data.json();
-    this.props.setProgress(50);
-    this.setState({
-      articles: parsedData.articles,
-      totalResults: parsedData.totalResults,
-      loading: false,
-    });
-    this.props.setProgress(100);
+
+    // const url = `https://newsapi.org/v2/top-headlines?country=${this.props.country}&category=${this.props.category}&apiKey=5f70b9392d744f06bf1d4b9219a6a9c2&page=${this.state.page}&pageSize=${this.props.pageSize}`;
+    const url = `https://newsapi.org/v2/top-headlines?category=${this.props.category}&apiKey=5f70b9392d744f06bf1d4b9219a6a9c2`
+    try {
+      let data = await fetch(url);
+      if (this.props.setProgress) this.props.setProgress(30);
+
+      let parsedData = await data.json();
+      if (this.props.setProgress) this.props.setProgress(50);
+
+      this.setState({
+        articles: parsedData.articles || this.articles, // fallback if undefined
+        totalResults: parsedData.totalResults || 0,
+        loading: false,
+      });
+    } catch (error) {
+      console.error("Error fetching news:", error);
+      // fallback to sample articles
+      this.setState({ articles: this.articles, loading: false });
+    }
+
+    if (this.props.setProgress) this.props.setProgress(100);
   }
 
   handlePageChange = async (increment) => {
-    this.setState({ page: this.state.page + increment }, this.fetchNews);
+    this.setState(
+      { page: this.state.page + increment },
+      () => this.fetchNews() // call after state update
+    );
   };
+
   capital = (str) => {
     return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
   render() {
     return (
-      <div className="container" style={{backgroundColor:'#E1EBEE'}}>
-        <h2 className="text-center" style={{marginTop:'65px' , color: '#002D62'}}>
-          Alpha News - Top {this.capital(this.props.category)} Headings
+      <div className="container" style={{ backgroundColor: "#E1EBEE" }}>
+        <h2
+          className="text-center"
+          style={{ marginTop: "65px", color: "#002D62" }}
+        >
+          Alpha News - Top {this.capital(this.props.category)} Headlines
         </h2>
+
         {this.state.loading && <Spinner />}
 
         <div className="row my-3">
           {!this.state.loading &&
-            this.state.articles.map((element) => {
-              return (
-                <div className="col-md-4" key={element.url}>
-                  <NewsItem
-                    title={element.title ? element.title.slice(0, 45) : ""}
-                    description={
-                      element.description
-                        ? element.description.slice(0, 88)
-                        : ""
-                    }
-                    imageUrl={element.urlToImage}
-                    newsUrl={element.url}
-                    author={element.author}
-                    date={element.publishedAt}
-                    source={element.source.name}
-                  />
-                </div>
-              );
-            })}
+            this.state.articles &&
+            this.state.articles.map((element) => (
+              <div className="col-md-4" key={element.url}>
+                <NewsItem
+                  title={element.title ? element.title.slice(0, 45) : ""}
+                  description={
+                    element.description
+                      ? element.description.slice(0, 88)
+                      : ""
+                  }
+                  imageUrl={element.urlToImage}
+                  newsUrl={element.url}
+                  author={element.author}
+                  date={element.publishedAt}
+                  source={element.source?.name}
+                />
+              </div>
+            ))}
         </div>
+
         <div className="d-flex justify-content-between my-3">
           <button
             type="button"
@@ -143,6 +164,7 @@ export class News extends Component {
 }
 
 export default News;
+
 
 // import React, { Component } from "react";
 // import NewsItem from "../NewsItem";
